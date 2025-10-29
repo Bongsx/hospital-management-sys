@@ -181,55 +181,69 @@ const AddUserModal = ({ showModal, setShowModal }) => {
     );
   };
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
-  // Function to send welcome email
-  const sendWelcomeEmail = async (userEmail, userPassword) => {
-    setIsEmailLoading(true);
-    setEmailStatus("Sending welcome email...");
+// Function to send welcome email
+const sendWelcomeEmail = async (userEmail, userPassword) => {
+  setIsEmailLoading(true);
+  setEmailStatus("Connecting to server (this may take up to 60 seconds)...");
 
-    try {
-      const response = await fetch(`${API_URL}/add-user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          firstName: firstName,
-          email: userEmail,
-          password: userPassword,
-        }),
-      });
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
 
-      if (response.ok) {
-        const result = await response.json();
-        setEmailStatus("Welcome email sent successfully!");
-      } else {
-        let errorMessage = "Unknown error";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || "Unknown error";
-        } catch (jsonError) {
-          errorMessage = `Server error (${response.status})`;
-        }
-        setEmailStatus(`Email sending failed: ${errorMessage}`);
+    console.log("Sending email request to:", `${API_URL}/add-user`);
+
+    const response = await fetch(`${API_URL}/add-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        firstName: firstName,
+        email: userEmail,
+        password: userPassword,
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    console.log("Response status:", response.status);
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log("Email sent successfully:", result);
+      setEmailStatus("Welcome email sent successfully!");
+    } else {
+      let errorMessage = "Unknown error";
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.details || "Unknown error";
+        console.error("Email error response:", errorData);
+      } catch (jsonError) {
+        errorMessage = `Server error (${response.status})`;
       }
-    } catch (error) {
-      console.error("Email sending error:", error);
-
-      if (error.name === "TypeError" && error.message.includes("fetch")) {
-        setEmailStatus(
-          "Email service unavailable. Account created successfully without email notification."
-        );
-      } else {
-        setEmailStatus(
-          "Failed to send welcome email. Account was created successfully."
-        );
-      }
-    } finally {
-      setIsEmailLoading(false);
+      setEmailStatus(`Email sending failed: ${errorMessage}`);
     }
-  };
+  } catch (error) {
+    console.error("Email sending error:", error);
+
+    if (error.name === 'AbortError') {
+      setEmailStatus("Request timeout. Server may be starting up. Please try again in a moment.");
+    } else if (error.name === "TypeError" && error.message.includes("fetch")) {
+      setEmailStatus(
+        "Email service unavailable. Account created successfully without email notification."
+      );
+    } else {
+      setEmailStatus(
+        "Failed to send welcome email. Account was created successfully."
+      );
+    }
+  } finally {
+    setIsEmailLoading(false);
+  }
+};
 
   const closeSuccessModal = () => {
     setSuccess(false);

@@ -2,9 +2,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import rolesRouter from "./roles.js";
-import addUser from "./add-user/index.js";
+import addUserRouter from "./add-user/index.js";
 
 dotenv.config();
+
 const app = express();
 
 // Allowed origins
@@ -60,7 +61,7 @@ app.get('/', (req, res) => {
 });
 
 // API Routes
-app.use("/add-user", addUser);
+app.use("/add-user", addUserRouter);
 app.use("/api", rolesRouter);
 
 // 404 handler
@@ -90,6 +91,6 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`✅ Allowed origins:`, allowedOrigins);
-  console.log(`📧 Email configured: ${process.env.EMAIL_USER ? 'Yes' : 'No'}`);
+  console.log(`📧 Mailjet configured: ${process.env.MAILJET_API_KEY ? 'Yes' : 'No'}`);
   console.log('═══════════════════════════════════════');
 });

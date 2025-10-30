@@ -181,12 +181,13 @@ const AddUserModal = ({ showModal, setShowModal }) => {
     );
   };
 
+// Email sending configuration for Mailjet
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
-// Function to send welcome email
-const sendWelcomeEmail = async (userEmail, userPassword) => {
+// Function to send welcome email via Mailjet
+const sendWelcomeEmail = async (userEmail, userPassword, userName) => {
   setIsEmailLoading(true);
-  setEmailStatus("Connecting to server (this may take up to 60 seconds)...");
+  setEmailStatus("Connecting to Mailjet email service...");
 
   try {
     const controller = new AbortController();
@@ -200,7 +201,7 @@ const sendWelcomeEmail = async (userEmail, userPassword) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        firstName: firstName,
+        firstName: userName,
         email: userEmail,
         password: userPassword,
       }),
@@ -210,41 +211,43 @@ const sendWelcomeEmail = async (userEmail, userPassword) => {
     clearTimeout(timeoutId);
 
     console.log("Response status:", response.status);
+    console.log("Response headers:", response.headers);
 
     if (response.ok) {
       const result = await response.json();
-      console.log("Email sent successfully:", result);
-      setEmailStatus("Welcome email sent successfully!");
+      console.log("Mailjet email sent successfully:", result);
+      setEmailStatus("✅ Welcome email sent successfully via Mailjet!");
+      return { success: true, data: result };
     } else {
       let errorMessage = "Unknown error";
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorData.details || "Unknown error";
-        console.error("Email error response:", errorData);
+        console.error("Mailjet email error response:", errorData);
       } catch (jsonError) {
         errorMessage = `Server error (${response.status})`;
       }
-      setEmailStatus(`Email sending failed: ${errorMessage}`);
+      setEmailStatus(`⚠️ Email sending failed: ${errorMessage}`);
+      return { success: false, error: errorMessage };
     }
   } catch (error) {
     console.error("Email sending error:", error);
 
     if (error.name === 'AbortError') {
-      setEmailStatus("Request timeout. Server may be starting up. Please try again in a moment.");
+      setEmailStatus("⏱️ Request timeout. Server may be starting up (free tier cold start). Account created successfully.");
+      return { success: false, error: "timeout" };
     } else if (error.name === "TypeError" && error.message.includes("fetch")) {
-      setEmailStatus(
-        "Email service unavailable. Account created successfully without email notification."
-      );
+      setEmailStatus("⚠️ Email service unavailable. Account created successfully without email notification.");
+      return { success: false, error: "network" };
     } else {
-      setEmailStatus(
-        "Failed to send welcome email. Account was created successfully."
-      );
+      setEmailStatus("⚠️ Failed to send welcome email. Account was created successfully.");
+      return { success: false, error: error.message };
     }
   } finally {
     setIsEmailLoading(false);
   }
 };
-
+  
   const closeSuccessModal = () => {
     setSuccess(false);
     setShowModal(false);
@@ -346,8 +349,8 @@ const sendWelcomeEmail = async (userEmail, userPassword) => {
       }
 
       // Send welcome email after successful account creation
-      sendWelcomeEmail(email, password, selectedRole).catch((emailError) => {
-        console.warn(
+sendWelcomeEmail(email, password, firstName).catch((emailError) => {
+  console.warn(
           "Email sending failed, but account was created successfully:",
           emailError
         );
